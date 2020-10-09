@@ -2,23 +2,41 @@
   .ineschr 1   ; 1x  8KB CHR data
   .inesmap 0   ; mapper 0 = NROM, no bank swapping
   .inesmir 1   ; background mirroring for horizontal games
-  
 
+;settings, uncomment or put them into your main program; the latter makes possible updates easier
+
+FT_BASE_ADR		= $0300	;page in the RAM used for FT2 variables, should be $xx00
+FT_TEMP			= $00	;3 bytes in zeropage used by the library as a scratchpad
+FT_DPCM_OFF		= $c000	;$c000..$ffc0, 64-byte steps
+FT_SFX_STREAMS	= 4		;number of sound effects played at once, 1..4
+
+;
+; FT_DPCM_ENABLE			;undefine to exclude all DMC code
+; FT_SFX_ENABLE			;undefine to exclude all sound effects code
+; FT_THREAD				;undefine if you are calling sound effects from the same thread as the sound update call
+
+; FT_PAL_SUPPORT			;undefine to exclude PAL support
+; FT_NTSC_SUPPORT			;undefine to exclude NTSC support
+
+
+
+;internal defines
 ;;;;;;;;;;;;;;;
 
 ;; VARIABLES
   .rsset $0000
   
-PLAYERXFIRST      = $02
-PLAYERXSECOND     = $03
-PLAYERXSPEED      = $04
-PLAYERYLOW        = $05
-PLAYERYHIGH       = $06
-PLAYERISFORWARD   = $07
+PLAYERXFIRST      = $05
+PLAYERXSECOND     = $06
+PLAYERXSPEED      = $07
+PLAYERYLOW        = $08
+PLAYERYHIGH       = $09
+PLAYERISFORWARD   = $0A
+MUSICISPLAYING    = $0B
 
   
 ;; CONSTANTS
-GRAVITY    = $01
+GRAVITY    = $04
 
 ;;Common Memory Addresses
 PPUCONTROL  = $2000
@@ -27,7 +45,7 @@ PPUSTATUS   = $2002
 OAMADDR     = $2003
 PPUADDR     = $2006
 PPUDATA     = $2007
-OAMDMA
+OAMDMA      = $4014
 CONTROLLER1 = $4016
 CONTROLLER2 = $4017
 ;;;;;;;;;;;;;;
@@ -52,7 +70,6 @@ RESET:
   STX $2000    ; disable NMI
   STX $2001    ; disable rendering
   STX $4010    ; disable DMC IRQs
-  JSR INITIALIZEPLAYER
   JSR vblankwait
 
 clrmem:
@@ -70,8 +87,7 @@ clrmem:
   BNE clrmem
 
   JSR vblankwait
-
-
+  
 LoadPalettes:
   LDA PPUSTATUS
   ;;the sad writing 16 bit life
@@ -131,19 +147,16 @@ INITIALIZEPLAYER:
   STA PLAYERYLOW
   STA PLAYERYHIGH  
   STA PLAYERISFORWARD
-  RTS
+  STA MUSICISPLAYING
 
-Forever:
-  JMP Forever     ;jump forever so the 6502 is never bored
+INITIALIZELOOP:
+  LDA #$01
+  LDX #LOW(untitled_music_data)
+  LDY #HIGH(untitled_music_data)
+ ; JSR FamiToneInit
 
-NMI:
-  LDA #$00
-  STA $2003  ; set the low byte (00) of the RAM address
-  LDA #$02
-  STA $4014  ; set the high byte (02) of the RAM address, start the transfer
-  
-  
-
+GameLoop:
+  JSR vblankwait
 LatchController:
   LDA #$01
   STA CONTROLLER1
@@ -225,15 +238,19 @@ FaceLeftCheck:
   STA $020A
   STA $020E
   LDA $0203
-  ADC #$08
+  CLC
+  ADC #$08  
   STA $0203
   LDA $0207
+  CLC
   ADC #$08
   STA $0207
   LDA $020B
-  SBC #$07
+  SEC
+  SBC #$08 
   STA $020B
   LDA $020F
+  SEC
   SBC #$08
   STA $020F
   
@@ -269,25 +286,43 @@ FaceRightCheck:
   STA $020A
   STA $020E
   LDA $0203
+  SEC
   SBC #$08
   STA $0203
   LDA $0207
+  SEC
   SBC #$08
   STA $0207
   LDA $020B
-  ADC #$07
+  CLC
+  ADC #$08
   STA $020B
   LDA $020F
+  CLC
   ADC #$08
   STA $020F
   
 ReadRightDone:        ; handling this button is done
-
-
-  RTI        ; return from interrupt
-;;;;;;;;;;;;;;  
   
-  
+PlayMusic:
+  LDA MUSICISPLAYING	
+  BNE MusicDone
+  LDA #$00
+  ;JSR FamiToneMusicPlay
+  LDA #$01
+  STA MUSICISPLAYING
+MusicDone:
+  JMP GameLoop
+
+NMI:
+  LDA #$00
+  STA $2003  ; set the low byte (00) of the RAM address
+  LDA #$02
+  STA OAMDMA  ; set the high byte (02) of the RAM address, start the transfer
+  ;JSR FamiToneUpdate
+  RTI
+
+;;;;;;;;;;;;;;    
   
   .bank 1
   .org $E000
@@ -316,3 +351,6 @@ sprites:
   .bank 2
   .org $0000
   .incbin "mario.chr"   ;includes 8KB graphics file from SMB1
+music:
+  .include "famitone2.asm"
+  .include "coreymusic.asm"
