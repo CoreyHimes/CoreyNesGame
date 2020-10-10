@@ -90,7 +90,6 @@ clrmem:
   
 LoadPalettes:
   LDA PPUSTATUS
-  ;;the sad writing 16 bit life
   LDA #$3F
   STA PPUADDR
   LDA #$00
@@ -153,7 +152,7 @@ INITIALIZELOOP:
   LDA #$01
   LDX #LOW(untitled_music_data)
   LDY #HIGH(untitled_music_data)
- ; JSR FamiToneInit
+  JSR FamiToneInit
 
 GameLoop:
   JSR vblankwait
@@ -274,7 +273,7 @@ PlayMusic:
   LDA MUSICISPLAYING	
   BNE MusicDone
   LDA #$00
-  ;JSR FamiToneMusicPlay
+  JSR FamiToneMusicPlay
   LDA #$01
   STA MUSICISPLAYING
 MusicDone:
@@ -285,7 +284,7 @@ NMI:
   STA $2003  ; set the low byte (00) of the RAM address
   LDA #$02
   STA OAMDMA  ; set the high byte (02) of the RAM address, start the transfer
-  ;JSR FamiToneUpdate
+  JSR FamiToneUpdate
   RTI
 
 Flip:
@@ -311,6 +310,9 @@ Flip:
   BNE Flip
   
   RTS
+music:
+  .include "famitone2.asm"
+  .include "untitled.asm"
 ;;;;;;;;;;;;;;    
   
   .bank 1
@@ -332,14 +334,10 @@ sprites:
   .dw RESET      ;when the processor first turns on or is reset, it will jump
                    ;to the label RESET:
   .dw 0          ;external interrupt IRQ is not used in this tutorial
-  
-  
+
 ;;;;;;;;;;;;;;  
   
   
   .bank 2
   .org $0000
   .incbin "mario.chr"   ;includes 8KB graphics file from SMB1
-music:
-  .include "famitone2.asm"
-  .include "music.asm"

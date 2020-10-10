@@ -7,7 +7,7 @@ untitled_music_data:
 	.dw .song0ch0,.song0ch1,.song0ch2,.song0ch3,.song0ch4,307,256
 
 .instruments:
-	.db $f0 ;instrument 00 (Bass)
+	.db $30 ;instrument 00 (Instrument 1)
 	.dw .env1, .env0, .env0
 	.db $00
 
@@ -21,184 +21,184 @@ untitled_music_data:
 	.db $fb, $01
 .song0ch0loop:
 .ref0:
-	.db $80,$4e,$4e,$4e,$bb,$00,$4e,$83,$4e,$93,$00,$4e,$9b,$00,$54,$9d,$00,$83,$52,$93,$01,$4e,$91,$01,$4a,$a3
+	.db $80,$4e,$b9,$52,$91,$54,$91,$52,$91,$4e,$8f,$4a,$93,$52,$93,$4e,$97,$48,$8d,$00,$dd
 .ref1:
-	.db $83,$00,$83,$52,$9b,$01,$4e,$95,$00,$4a,$93,$00,$48,$bd,$01,$4e,$8b,$54,$8d,$54,$8d,$58,$01,$4a,$87,$52,$9b,$00
+	.db $f9,$f9,$cb
 .ref2:
-	.db $81,$48,$a3,$01,$46,$95,$44,$f9,$bf
+	.db $f9,$f9,$cb
 .ref3:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref4:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref5:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref6:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref7:
-	.db $a7,$00,$f9,$db
+	.db $f9,$f9,$cb
 .ref8:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref9:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref10:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref11:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref12:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref13:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref14:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref15:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 	.db $fd
 	.dw .song0ch0loop
 
 .song0ch1:
 .song0ch1loop:
 .ref16:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref17:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref18:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref19:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref20:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref21:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref22:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref23:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref24:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref25:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref26:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref27:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref28:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref29:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref30:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref31:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 	.db $fd
 	.dw .song0ch1loop
 
 .song0ch2:
 .song0ch2loop:
 .ref32:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref33:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref34:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref35:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref36:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref37:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref38:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref39:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref40:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref41:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref42:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref43:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref44:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref45:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref46:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref47:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 	.db $fd
 	.dw .song0ch2loop
 
 .song0ch3:
 .song0ch3loop:
 .ref48:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref49:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref50:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref51:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref52:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref53:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref54:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref55:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref56:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref57:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref58:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref59:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref60:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref61:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref62:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref63:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 	.db $fd
 	.dw .song0ch3loop
 
 .song0ch4:
 .song0ch4loop:
 .ref64:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref65:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref66:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref67:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref68:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref69:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref70:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref71:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref72:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref73:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref74:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref75:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref76:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref77:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref78:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 .ref79:
-	.db $f9,$f9,$8b
+	.db $f9,$f9,$cb
 	.db $fd
 	.dw .song0ch4loop
