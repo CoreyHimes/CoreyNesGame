@@ -226,33 +226,16 @@ ReadLeft:
   INX
   CPX #$10  ;
   BNE ReadLeft
-  
-FaceLeftCheck:
   LDA PLAYERISFORWARD
   CMP #%01000000
-  BEQ ReadLeftDone ;already facing left, no need to flip sprites
-  LDA #%01000000  ; makes the sprite face left
+  BNE FlipLeft
+  JMP ReadLeftDone
+ 
+FlipLeft:
+  LDA #%01000000
   STA PLAYERISFORWARD
-  STA $0202
-  STA $0206
-  STA $020A
-  STA $020E
-  LDA $0203
-  CLC
-  ADC #$08  
-  STA $0203
-  LDA $0207
-  CLC
-  ADC #$08
-  STA $0207
-  LDA $020B
-  SEC
-  SBC #$08 
-  STA $020B
-  LDA $020F
-  SEC
-  SBC #$08
-  STA $020F
+  LDX #$00
+  JSR Flip
   
 ReadLeftDone:        ; handling this button is done
 
@@ -274,35 +257,18 @@ ReadRight:
   INX
   CPX #$10
   BNE ReadRight
-  
-FaceRightCheck:
   LDA PLAYERISFORWARD
   CMP #%00000000
-  BEQ ReadRightDone ; already facing right, no need to flip sprites 
-  LDA #%00000000 ; makes the sprite face left
+  BNE FlipRight
+  JMP ReadRightDone
+
+FlipRight:
+  LDA #%00000000
   STA PLAYERISFORWARD
-  STA $0202
-  STA $0206
-  STA $020A
-  STA $020E
-  LDA $0203
-  SEC
-  SBC #$08
-  STA $0203
-  LDA $0207
-  SEC
-  SBC #$08
-  STA $0207
-  LDA $020B
-  CLC
-  ADC #$08
-  STA $020B
-  LDA $020F
-  CLC
-  ADC #$08
-  STA $020F
+  LDX #$00
+  JSR Flip
   
-ReadRightDone:        ; handling this button is done
+ReadRightDone:        ; handling this button is done  
   
 PlayMusic:
   LDA MUSICISPLAYING	
@@ -322,6 +288,29 @@ NMI:
   ;JSR FamiToneUpdate
   RTI
 
+Flip:
+  ;Flips Position
+  LDA $0203, x
+  PHA
+  LDA $0207, x
+  STA $0203, x
+  PLA
+  STA $0207, x
+  
+  ;Flips Sprites
+  LDA PLAYERISFORWARD
+  STA $0202, x
+  STA $0206, x
+  
+  ;Loop it up
+  TXA
+  CLC
+  ADC #$08
+  TAX
+  CPX #$10 ;This should eventually be based on the y register so I can flip all sprites
+  BNE Flip
+  
+  RTS
 ;;;;;;;;;;;;;;    
   
   .bank 1
@@ -333,8 +322,8 @@ palette:
 sprites:
      ;vert tile attr horiz
   .db $80, $32, $00, $80   ;sprite 0
-  .db $88, $34, $00, $80   ;sprite 1
-  .db $80, $33, $00, $88   ;sprite 2  
+  .db $80, $33, $00, $88   ;sprite 1 
+  .db $88, $34, $00, $80   ;sprite 2  
   .db $88, $35, $00, $88   ;sprite 3
 
   .org $FFFA     ;first of the three vectors starts here
@@ -353,4 +342,4 @@ sprites:
   .incbin "mario.chr"   ;includes 8KB graphics file from SMB1
 music:
   .include "famitone2.asm"
-  .include "coreymusic.asm"
+  .include "music.asm"
