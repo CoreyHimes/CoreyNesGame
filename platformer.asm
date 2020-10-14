@@ -15,8 +15,8 @@ FT_SFX_STREAMS	= 4		;number of sound effects played at once, 1..4
 ; FT_SFX_ENABLE			;undefine to exclude all sound effects code
 ; FT_THREAD				;undefine if you are calling sound effects from the same thread as the sound update call
 
-; FT_PAL_SUPPORT			;undefine to exclude PAL support
-; FT_NTSC_SUPPORT			;undefine to exclude NTSC support
+FT_PAL_SUPPORT	= 1		;undefine to exclude PAL support
+FT_NTSC_SUPPORT = 1			;undefine to exclude NTSC support
 
 
 
@@ -36,7 +36,9 @@ MUSICISPLAYING    = $0B
 
   
 ;; CONSTANTS
-GRAVITY    = $04
+GRAVITY             = $04
+PLAYERMAXSPEED      = $0C ; MAKE SURE PLAYERMAXSPEED IS ALWAYS A MULTIPLE OF ACCELLERATION
+PLAYERACCELLERATION = $0D
 
 ;;Common Memory Addresses
 PPUCONTROL  = $2000
@@ -137,25 +139,72 @@ LoadSpritesLoop:
   LDA #%00010000   ; enable sprites
   STA PPUMASK
 
+LoadBackground:
+  LDA $2002             ; read PPU status to reset the high/low latch
+  LDA #$20
+  STA $2006             ; write the high byte of $2000 address
+  LDA #$00
+  STA $2006             ; write the low byte of $2000 address
+  LDX #$00              ; start out at 0
+LoadBackgroundLoop:
+  LDA background, x     ; load data from address (background + the value in x)
+  STA $2007             ; write to PPU
+  INX                   ; X = X + 1
+  CPX #$80              ; Compare X to hex $80, decimal 128 - copying 128 bytes
+  BNE LoadBackgroundLoop  ; Branch to LoadBackgroundLoop if compare was Not Equal to zero
+                        ; if compare was equal to 128, keep going down
+              
+              
+LoadAttribute:
+  LDA $2002             ; read PPU status to reset the high/low latch
+  LDA #$23
+  STA $2006             ; write the high byte of $23C0 address
+  LDA #$C0
+  STA $2006             ; write the low byte of $23C0 address
+  LDX #$00              ; start out at 0
+LoadAttributeLoop:
+  LDA attribute, x      ; load data from address (attribute + the value in x)
+  STA $2007             ; write to PPU
+  INX                   ; X = X + 1
+  CPX #$08              ; Compare X to hex $08, decimal 8 - copying 8 bytes
+  BNE LoadAttributeLoop  ; Branch to LoadAttributeLoop if compare was Not Equal to zero
+                        ; if compare was equal to 128, keep going down
+
+
+              
+              
+              
+  LDA #%10010000   ; enable NMI, sprites from Pattern Table 0, background from Pattern Table 1
+  STA $2000
+
+  LDA #%00011110   ; enable sprites, enable background, no clipping on left side
+  STA $2001
+  
 INITIALIZEPLAYER:
   ; lets zero out everything!
   LDA #0
-  STA PLAYERXFIRST
+  STA PLAYERXFIRST ; TODO come back to this and actually set it somewhere useful for collision
   STA PLAYERXSECOND
   STA PLAYERXSPEED 
   STA PLAYERYLOW
   STA PLAYERYHIGH  
   STA PLAYERISFORWARD
+  LDA #$01
+  STA PLAYERACCELLERATION
+  LDA #$08
+  STA PLAYERMAXSPEED
   STA MUSICISPLAYING
 
 INITIALIZELOOP:
   LDA #$01
-  LDX #LOW(untitled_music_data)
-  LDY #HIGH(untitled_music_data)
+  LDX #LOW(superrunner_music_data)
+  LDY #HIGH(superrunner_music_data)
   JSR FamiToneInit
 
 GameLoop:
   JSR vblankwait
+  
+  
 LatchController:
   LDA #$01
   STA CONTROLLER1
@@ -213,11 +262,16 @@ InitializeLeft:
   AND #%00000001  
   BEQ ReadLeftDone  
   LDX #$00
+  LDA PLAYERXSPEED
+  CMP PLAYERMAXSPEED
+  BEQ ReadLeft
+  ADC PLAYERACCELLERATION
+  STA PLAYERXSPEED
   
-ReadLeft: 
+ReadLeft:
   LDA $0203, x       ; load sprite X position
   SEC             ; make sure carry flag is set
-  SBC #$01        ; A = A - 1
+  SBC PLAYERXSPEED        
   STA $0203, x       ; save sprite X position
   INX
   INX
@@ -244,11 +298,16 @@ InitializeRight:
   AND #%00000001  
   BEQ ReadRightDone  
   LDX #$00
+  LDA PLAYERXSPEED
+  CMP PLAYERMAXSPEED
+  BEQ ReadRight
+  ADC PLAYERACCELLERATION
+  STA PLAYERXSPEED
   
 ReadRight: 
   LDA $0203, x       ; load sprite X position
-  CLC             ; make sure the carry flag is clear
-  ADC #$01        ; A = A + 1
+  CLC                ; make sure the carry flag is clear
+  ADC PLAYERXSPEED   ; A = A + current speed
   STA $0203, x       ; save sprite X position
   INX
   INX
@@ -280,15 +339,30 @@ MusicDone:
   JMP GameLoop
 
 NMI:
+
+  pha
+  txa
+  pha
+  tya
+  pha
+  
   LDA #$00
   STA $2003  ; set the low byte (00) of the RAM address
   LDA #$02
   STA OAMDMA  ; set the high byte (02) of the RAM address, start the transfer
+  
+  pla
+  tay
+  pla
+  tax
+  pla
   JSR FamiToneUpdate
   RTI
 
 Flip:
   ;Flips Position
+  LDA #$00
+  STA PLAYERXSPEED
   LDA $0203, x
   PHA
   LDA $0207, x
@@ -310,10 +384,13 @@ Flip:
   BNE Flip
   
   RTS
+  
+DECREASESPEED:
+  
 music:
   .include "famitone2.asm"
-  .include "untitled.asm"
-;;;;;;;;;;;;;;    
+  .include "music.asm"
+;;;;;;;;;;;;;;   
   
   .bank 1
   .org $E000
@@ -323,11 +400,42 @@ palette:
 
 sprites:
      ;vert tile attr horiz
-  .db $80, $32, $00, $80   ;sprite 0
-  .db $80, $33, $00, $88   ;sprite 1 
-  .db $88, $34, $00, $80   ;sprite 2  
-  .db $88, $35, $00, $88   ;sprite 3
+  .db $80, $00, $00, $80   ;sprite 0
+  .db $80, $01, $00, $88   ;sprite 1 
+  .db $88, $10, $00, $80   ;sprite 2  
+  .db $88, $11, $00, $88   ;sprite 3
 
+
+background:
+  .db $00,$01,$02,$03,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+
+  .db $00,$01,$02,$03,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+
+  .db $00,$01,$02,$03,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+
+  .db $00,$01,$02,$03,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$04 ;;all sky
+  
+  .db $00,$01,$02,$03,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$04 ;;all sky
+  
+  .db $00,$01,$02,$03,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$04 ;;all sky
+  
+  .db $00,$01,$02,$03,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$04 ;;all sky
+  
+  .db $00,$01,$02,$03,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$04 ;;all sky
+
+attribute:
+  .db %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000
+
+  .db $00,$01,$02,$03, $00,$00,$00,$00 ,$00,$00,$00,$00, $00,$00,$00,$00 ,$00,$00,$00,$00 ,$00,$00,$00,$00, $00,$00,$00,$00, $00,$00,$00,$00  ;;brick bottoms
+  
   .org $FFFA     ;first of the three vectors starts here
   .dw NMI        ;when an NMI happens (once per frame if enabled) the 
                    ;processor will jump to the label NMI:
@@ -340,4 +448,4 @@ sprites:
   
   .bank 2
   .org $0000
-  .incbin "mario.chr"   ;includes 8KB graphics file from SMB1
+  .incbin "superrunner.chr"   ;includes 8KB graphics file from SMB1
