@@ -37,6 +37,8 @@ PLAYERISFORWARD   = $0A
 MUSICISPLAYING    = $0B
 PLAYERJUMPLEFT    = $10
 CONTROLLERREAD1   = $11 ; bitmask controller
+ANIMATIONFRAME    = $12
+CURRENTSPRITE     = $13
 
 ;; CONSTANTS
 GRAVITY             = $04
@@ -185,7 +187,7 @@ LoadAttributeLoop:
   LDA #%00011110   ; enable sprites, enable background, no clipping on left side
   STA $2001
   
-INITIALIZEPLAYER:
+INITIALIZEPLAYER: ; TODO rename this boy
   ; lets zero out everything!
   LDA #0
   STA PLAYERXFIRST ; TODO come back to this and actually set it somewhere useful for collision
@@ -196,11 +198,13 @@ INITIALIZEPLAYER:
   STA PLAYERISFORWARD
   STA PLAYERYSPEED
   STA PLAYERCANJUMP
+  STA MUSICISPLAYING
+  STA ANIMATIONFRAME
   LDA #$01
   STA PLAYERACCELERATION
   LDA #$08
   STA PLAYERMAXSPEED
-  STA MUSICISPLAYING
+
 
 INITIALIZELOOP:
   LDA #$01
@@ -210,8 +214,37 @@ INITIALIZELOOP:
 
 GameLoop:
   JSR vblankwait
+
+; The below logic seems correct. I believe it doesn't work due to the way sprites are being imported  
+Animate: ;This looks like the job of a table someday
+  LDX ANIMATIONFRAME
+  INX
+  STX ANIMATIONFRAME
+  CPX #$10
+  BNE AnimateDone
+  LDA CURRENTSPRITE
+  CMP #00
+  BEQ Sprite2
+
+Sprite1:
+  LDA #$00
+  STA ANIMATIONFRAME
+  STA CURRENTSPRITE
+  STA $0201
+  LDA #$10
+  STA $0209
+  JMP AnimateDone
   
-  
+Sprite2:
+  LDA #$01
+  STA CURRENTSPRITE 
+  STA ANIMATIONFRAME  
+  LDA #$20
+  STA $0201
+  LDA #$30
+  STA $0209
+AnimateDone:
+
 ReadController:
   LDA #$01
   STA CONTROLLER1
@@ -239,11 +272,19 @@ ReadA:
   STA PLAYERYSPEED
   LDA #$01
   STA PLAYERCANJUMP
+  JMP ReadADone
   ; add yspeed of jump
 ReleaseA:
-  
+  LDA #$00
+  STA PLAYERYSPEED
+  STA PLAYERCANJUMP
 ReadADone:        ; handling this button is done
 
+ReadB: 
+  LDA CONTROLLERREAD1       ; player 1 - A
+  AND #%01000000  ; only look at bit 0
+  JSR ToggleSuperState
+  
 InitializeLeft:
 ; check if we actually need to do anything
   LDA CONTROLLERREAD1      
@@ -316,6 +357,7 @@ FlipRight:
   
 ReadRightDone:        ; handling this button is done  
   LDX #$00
+
 CalculateY:
   LDA $0200, x       ; load sprite Y position
   SEC                ; make sure the carry flag is clear
@@ -323,7 +365,7 @@ CalculateY:
   STA $0200, x       ; save sprite Y position
   INX
   INX
- INX
+  INX
   INX
   CPX #$10
   BNE CalculateY
@@ -386,7 +428,9 @@ Flip:
   
   RTS
   
-DECREASESPEED:
+ToggleSuperState:
+; add logic to change sprite pallette and flip state
+  RTS
   
 music:
   .include "famitone2.asm"
