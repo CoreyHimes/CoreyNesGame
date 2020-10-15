@@ -31,14 +31,17 @@ PLAYERXSECOND     = $06
 PLAYERXSPEED      = $07
 PLAYERYLOW        = $08
 PLAYERYHIGH       = $09
+PLAYERYSPEED      = $0E
+PLAYERCANJUMP     = $0F  ;If I get greed consider turning this into something bitmaskable, probably being wasteful asis
 PLAYERISFORWARD   = $0A
 MUSICISPLAYING    = $0B
+PLAYERJUMPLEFT    = $10
+CONTROLLERREAD1   = $11 ; bitmask controller
 
-  
 ;; CONSTANTS
 GRAVITY             = $04
 PLAYERMAXSPEED      = $0C ; MAKE SURE PLAYERMAXSPEED IS ALWAYS A MULTIPLE OF ACCELLERATION
-PLAYERACCELLERATION = $0D
+PLAYERACCELERATION  = $0D
 
 ;;Common Memory Addresses
 PPUCONTROL  = $2000
@@ -146,6 +149,7 @@ LoadBackground:
   LDA #$00
   STA $2006             ; write the low byte of $2000 address
   LDX #$00              ; start out at 0
+
 LoadBackgroundLoop:
   LDA background, x     ; load data from address (background + the value in x)
   STA $2007             ; write to PPU
@@ -162,6 +166,7 @@ LoadAttribute:
   LDA #$C0
   STA $2006             ; write the low byte of $23C0 address
   LDX #$00              ; start out at 0
+
 LoadAttributeLoop:
   LDA attribute, x      ; load data from address (attribute + the value in x)
   STA $2007             ; write to PPU
@@ -189,8 +194,10 @@ INITIALIZEPLAYER:
   STA PLAYERYLOW
   STA PLAYERYHIGH  
   STA PLAYERISFORWARD
+  STA PLAYERYSPEED
+  STA PLAYERCANJUMP
   LDA #$01
-  STA PLAYERACCELLERATION
+  STA PLAYERACCELERATION
   LDA #$08
   STA PLAYERMAXSPEED
   STA MUSICISPLAYING
@@ -205,67 +212,48 @@ GameLoop:
   JSR vblankwait
   
   
-LatchController:
+ReadController:
   LDA #$01
   STA CONTROLLER1
   LDA #$00
-  STA $4016       ; tell both the controllers to latch buttons
+  STA CONTROLLER1       ; tell both the controllers to latch buttons
+  LDX #$08
+  CLC
+  
+LoopController:
+  LDA CONTROLLER1       ; player 1 - A
+  LSR A
+  ROL CONTROLLERREAD1
+  DEX
+  BNE LoopController
   
 ReadA: 
-  LDA CONTROLLER1       ; player 1 - A
-  AND #%00000001  ; only look at bit 0
-  BEQ ReadADone   ; branch to ReadADone if button is NOT pressed (0)
+  LDA CONTROLLERREAD1       ; player 1 - A
+  AND #%10000000  ; only look at bit 0
+  BEQ ReleaseA   ; branch to ReadADone if button is NOT pressed (0)
                   ; add instructions here to do something when button IS pressed (1)
+  LDA PLAYERCANJUMP
+  BNE ReadADone
+  LDA PLAYERYSPEED
+  ADC #$01
+  STA PLAYERYSPEED
+  LDA #$01
+  STA PLAYERCANJUMP
+  ; add yspeed of jump
+ReleaseA:
+  
 ReadADone:        ; handling this button is done
-  
-
-ReadB: 
-  LDA CONTROLLER1       ; player 1 - B
-  AND #%00000001  ; only look at bit 0
-  BEQ ReadBDone   ; branch to ReadBDone if button is NOT pressed (0)
-                  ; add instructions here to do something when button IS pressed (1)
-ReadBDone:        ; handling this button is done 
-
-ReadSelect: 
-  LDA CONTROLLER1       ; player 1 - Select
-  AND #%00000001  ; only look at bit 0
-  BEQ ReadSelectDone   ; branch to ReadADone if button is NOT pressed (0)
-                  ; add instructions here to do something when button IS pressed (1)
-ReadSelectDone:        ; handling this button is done
-  
-
-ReadStart: 
-  LDA CONTROLLER1       ; player 1 - Start
-  AND #%00000001  ; only look at bit 0
-  BEQ ReadStartDone   ; branch to ReadBDone if button is NOT pressed (0)
-                  ; add instructions here to do something when button IS pressed (1)
-ReadStartDone:        ; handling this button is done
-
-ReadUp: 
-  LDA CONTROLLER1       ; player 1 - Up
-  AND #%00000001  ; only look at bit 0
-  BEQ ReadUpDone   ; branch to ReadADone if button is NOT pressed (0)
-                  ; add instructions here to do something when button IS pressed (1)
-ReadUpDone:        ; handling this button is done
-  
-
-ReadDown: 
-  LDA CONTROLLER1     ; player 1 - Down
-  AND #%00000001  ; only look at bit 0
-  BEQ ReadDownDone   ; branch to ReadBDone if button is NOT pressed (0)
-                  ; add instructions here to do something when button IS pressed (1)
-ReadDownDone:        ; handling this button is done
 
 InitializeLeft:
 ; check if we actually need to do anything
-  LDA CONTROLLER1      
-  AND #%00000001  
+  LDA CONTROLLERREAD1      
+  AND #%00000010  
   BEQ ReadLeftDone  
   LDX #$00
   LDA PLAYERXSPEED
   CMP PLAYERMAXSPEED
   BEQ ReadLeft
-  ADC PLAYERACCELLERATION
+  ADC PLAYERACCELERATION
   STA PLAYERXSPEED
   
 ReadLeft:
@@ -294,14 +282,14 @@ ReadLeftDone:        ; handling this button is done
 
 InitializeRight:
 ; check if we actually need to do anything
-  LDA CONTROLLER1      
+  LDA CONTROLLERREAD1     
   AND #%00000001  
   BEQ ReadRightDone  
   LDX #$00
   LDA PLAYERXSPEED
   CMP PLAYERMAXSPEED
   BEQ ReadRight
-  ADC PLAYERACCELLERATION
+  ADC PLAYERACCELERATION
   STA PLAYERXSPEED
   
 ReadRight: 
@@ -327,6 +315,18 @@ FlipRight:
   JSR Flip
   
 ReadRightDone:        ; handling this button is done  
+  LDX #$00
+CalculateY:
+  LDA $0200, x       ; load sprite Y position
+  SEC                ; make sure the carry flag is clear
+  SBC PLAYERYSPEED   ; A = A + current speed
+  STA $0200, x       ; save sprite Y position
+  INX
+  INX
+ INX
+  INX
+  CPX #$10
+  BNE CalculateY
   
 PlayMusic:
   LDA MUSICISPLAYING	
@@ -335,6 +335,7 @@ PlayMusic:
   JSR FamiToneMusicPlay
   LDA #$01
   STA MUSICISPLAYING
+
 MusicDone:
   JMP GameLoop
 
