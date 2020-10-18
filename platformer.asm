@@ -26,19 +26,21 @@ FT_NTSC_SUPPORT = 1			;undefine to exclude NTSC support
 ;; VARIABLES
   .rsset $0000
   
-PLAYERXFIRST      = $05
-PLAYERXSECOND     = $06
-PLAYERXSPEED      = $07
-PLAYERYLOW        = $08
-PLAYERYHIGH       = $09
-PLAYERYSPEED      = $0E
-PLAYERCANJUMP     = $0F  ;If I get greed consider turning this into something bitmaskable, probably being wasteful asis
-PLAYERISFORWARD   = $0A
-MUSICISPLAYING    = $0B
-PLAYERJUMPLEFT    = $10
-CONTROLLERREAD1   = $11 ; bitmask controller
-ANIMATIONFRAME    = $12
-CURRENTSPRITE     = $13
+PLAYERXFIRST      .rs 1
+PLAYERXSECOND     .rs 1
+PLAYERXSPEED      .rs 1
+PLAYERYLOW        .rs 1
+PLAYERYHIGH       .rs 1
+PLAYERYSPEED      .rs 1
+PLAYERCANJUMP     .rs 1  ;If I get greed consider turning this into something bitmaskable, probably being wasteful asis
+PLAYERISFORWARD   .rs 1
+MUSICISPLAYING    .rs 1
+PLAYERJUMPLEFT    .rs 1
+CONTROLLERREAD1   .rs 1 ; bitmask controller
+ANIMATIONFRAME    .rs 1
+CURRENTSPRITE     .rs 1
+CURRENTJUMP       .rs 1
+SCREENX           .rs 1  ;where the camera is pointed
 
 ;; CONSTANTS
 GRAVITY             = $04
@@ -50,6 +52,7 @@ PPUCONTROL  = $2000
 PPUMASK     = $2001
 PPUSTATUS   = $2002
 OAMADDR     = $2003
+PPUSCROLL   = $2005
 PPUADDR     = $2006
 PPUDATA     = $2007
 OAMDMA      = $4014
@@ -173,7 +176,7 @@ LoadAttributeLoop:
   LDA attribute, x      ; load data from address (attribute + the value in x)
   STA $2007             ; write to PPU
   INX                   ; X = X + 1
-  CPX #$08              ; Compare X to hex $08, decimal 8 - copying 8 bytes
+  CPX #$40              ; Compare X to hex $08, decimal 8 - copying 8 bytes
   BNE LoadAttributeLoop  ; Branch to LoadAttributeLoop if compare was Not Equal to zero
                         ; if compare was equal to 128, keep going down
 
@@ -200,7 +203,9 @@ INITIALIZEPLAYER: ; TODO rename this boy
   STA PLAYERCANJUMP
   STA MUSICISPLAYING
   STA ANIMATIONFRAME
+  STA SCREENX
   LDA #$01
+  STA GRAVITY
   STA PLAYERACCELERATION
   LDA #$08
   STA PLAYERMAXSPEED
@@ -215,6 +220,10 @@ INITIALIZELOOP:
 GameLoop:
   JSR vblankwait
 
+Scroll:
+  bit PPUSTATUS
+  LDA SCREENX
+  STA PPUSCROLL
 ; The below logic seems correct. I believe it doesn't work due to the way sprites are being imported  
 Animate: ;This looks like the job of a table someday
   LDX ANIMATIONFRAME
@@ -268,12 +277,13 @@ ReadA:
   LDA PLAYERCANJUMP
   BNE ReadADone
   LDA PLAYERYSPEED
-  ADC #$01
+  ADC #$02
   STA PLAYERYSPEED
   LDA #$01
   STA PLAYERCANJUMP
   JMP ReadADone
   ; add yspeed of jump
+  
 ReleaseA:
   LDA #$00
   STA PLAYERYSPEED
@@ -308,6 +318,10 @@ ReadLeft:
   INX
   CPX #$10  ;
   BNE ReadLeft
+  LDA SCREENX
+  SEC
+  SBC PLAYERXSPEED
+  STA SCREENX
   LDA PLAYERISFORWARD
   CMP #%01000000
   BNE FlipLeft
@@ -344,6 +358,10 @@ ReadRight:
   INX
   CPX #$10
   BNE ReadRight
+  LDA SCREENX
+  CLC
+  ADC PLAYERXSPEED
+  STA SCREENX
   LDA PLAYERISFORWARD
   CMP #%00000000
   BNE FlipRight
@@ -452,20 +470,20 @@ sprites:
 
 
 background:
-  .db $00,$01,$02,$03,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
   .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
 
-  .db $00,$01,$02,$03,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
   .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
 
-  .db $00,$01,$02,$03,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
   .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
 
-  .db $00,$01,$02,$03,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
-  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$04 ;;all sky
+  .db $10,$10,$10,$10,$10,$10,$10,$10,$10,$10,$10,$10,$10,$10,$10,$10 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
   
   .db $00,$01,$02,$03,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
-  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$04 ;;all sky
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
   
   .db $00,$01,$02,$03,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
   .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$04 ;;all sky
@@ -478,8 +496,15 @@ background:
 
 attribute:
   .db %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000
+  .db %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000
+  .db %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000
+  .db %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000
+  .db %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000
+  .db %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000
+  .db %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000
+  .db %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000
+  
 
-  .db $00,$01,$02,$03, $00,$00,$00,$00 ,$00,$00,$00,$00, $00,$00,$00,$00 ,$00,$00,$00,$00 ,$00,$00,$00,$00, $00,$00,$00,$00, $00,$00,$00,$00  ;;brick bottoms
   
   .org $FFFA     ;first of the three vectors starts here
   .dw NMI        ;when an NMI happens (once per frame if enabled) the 
