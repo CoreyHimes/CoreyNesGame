@@ -113,21 +113,6 @@ LoadPalettesLoop:
   CPX #$20            
   BNE LoadPalettesLoop  ;if x = $20, 32 bytes copied, all done
 
-
-
-  LDA #$80
-  STA $0200        ; put sprite 0 in center ($80) of screen vert
-  STA $0203        ; put sprite 0 in center ($80) of screen horiz
-  LDA #$00
-  STA $0201        ; tile number = 0
-  STA $0202        ; color = 0, no flipping
-
-  LDA #%10000000   ; enable NMI, sprites from Pattern Table 0
-  STA PPUCONTROL
-
-  LDA #%00010000   ; enable sprites
-  STA PPUMASK
-
 LoadSprites:
   LDX #$00              ; start at 0
 
@@ -138,43 +123,35 @@ LoadSpritesLoop:
   CPX #$20              ; Compare X to hex $20, decimal 32
   BNE LoadSpritesLoop   ; Branch to LoadSpritesLoop if compare was Not Equal to zero
                         ; if compare was equal to 32, keep going down
-              
-              
-
-  LDA #%10000000   ; enable NMI, sprites from Pattern Table 1
-  STA PPUCONTROL  
-
-  LDA #%00010000   ; enable sprites
-  STA PPUMASK
 
 LoadBackground:
-  LDA $2002             ; read PPU status to reset the high/low latch
+  LDA PPUSTATUS             ; read PPU status to reset the high/low latch
   LDA #$20
-  STA $2006             ; write the high byte of $2000 address
+  STA PPUADDR           ; write the high byte of $2000 address
   LDA #$00
-  STA $2006             ; write the low byte of $2000 address
+  STA PPUADDR            ; write the low byte of $2000 address
   LDX #$00              ; start out at 0
 
 LoadBackgroundLoop:
   LDA background, x     ; load data from address (background + the value in x)
-  STA $2007             ; write to PPU
+  STA PPUDATA             ; write to PPU
   INX                   ; X = X + 1
-  CPX #$80              ; Compare X to hex $80, decimal 128 - copying 128 bytes
+  CPX #$FF              ; Compare X to hex $80, decimal 128 - copying 128 bytes
   BNE LoadBackgroundLoop  ; Branch to LoadBackgroundLoop if compare was Not Equal to zero
                         ; if compare was equal to 128, keep going down
               
               
 LoadAttribute:
-  LDA $2002             ; read PPU status to reset the high/low latch
+  LDA PPUSTATUS            ; read PPU status to reset the high/low latch
   LDA #$23
-  STA $2006             ; write the high byte of $23C0 address
+  STA PPUADDR             ; write the high byte of $23C0 address
   LDA #$C0
-  STA $2006             ; write the low byte of $23C0 address
+  STA PPUADDR             ; write the low byte of $23C0 address
   LDX #$00              ; start out at 0
 
 LoadAttributeLoop:
   LDA attribute, x      ; load data from address (attribute + the value in x)
-  STA $2007             ; write to PPU
+  STA PPUDATA             ; write to PPU
   INX                   ; X = X + 1
   CPX #$40              ; Compare X to hex $08, decimal 8 - copying 8 bytes
   BNE LoadAttributeLoop  ; Branch to LoadAttributeLoop if compare was Not Equal to zero
@@ -207,7 +184,7 @@ INITIALIZEPLAYER: ; TODO rename this boy
   LDA #$01
   STA GRAVITY
   STA PLAYERACCELERATION
-  LDA #$08
+  LDA #$02
   STA PLAYERMAXSPEED
 
 
@@ -224,7 +201,7 @@ Scroll:
   bit PPUSTATUS
   LDA SCREENX
   STA PPUSCROLL
-; The below logic seems correct. I believe it doesn't work due to the way sprites are being imported  
+  
 Animate: ;This looks like the job of a table someday
   LDX ANIMATIONFRAME
   INX
@@ -242,6 +219,10 @@ Sprite1:
   STA $0201
   LDA #$10
   STA $0209
+  LDA #$01
+  STA $0205
+  ;LDA #$11
+  ;STA $0213
   JMP AnimateDone
   
 Sprite2:
@@ -252,6 +233,10 @@ Sprite2:
   STA $0201
   LDA #$30
   STA $0209
+  LDA #$21
+  STA $0205
+  ;LDA #$31
+  ;STA $0213
 AnimateDone:
 
 ReadController:
@@ -308,16 +293,17 @@ InitializeLeft:
   STA PLAYERXSPEED
   
 ReadLeft:
-  LDA $0203, x       ; load sprite X position
-  SEC             ; make sure carry flag is set
-  SBC PLAYERXSPEED        
-  STA $0203, x       ; save sprite X position
-  INX
-  INX
-  INX
-  INX
-  CPX #$10  ;
-  BNE ReadLeft
+; May not need to actually ever move the sprite if the screen scrolls around it?
+  ;LDA $0203, x       ; load sprite X position
+  ;SEC             ; make sure carry flag is set
+  ;SBC PLAYERXSPEED        
+  ;STA $0203, x       ; save sprite X position
+  ;INX
+  ;INX
+  ;INX
+  ;INX
+  ;CPX #$10  ;
+  ;BNE ReadLeft
   LDA SCREENX
   SEC
   SBC PLAYERXSPEED
@@ -348,16 +334,16 @@ InitializeRight:
   STA PLAYERXSPEED
   
 ReadRight: 
-  LDA $0203, x       ; load sprite X position
-  CLC                ; make sure the carry flag is clear
-  ADC PLAYERXSPEED   ; A = A + current speed
-  STA $0203, x       ; save sprite X position
-  INX
-  INX
-  INX
-  INX
-  CPX #$10
-  BNE ReadRight
+  ;LDA $0203, x       ; load sprite X position
+  ;CLC                ; make sure the carry flag is clear
+  ;ADC PLAYERXSPEED   ; A = A + current speed
+  ;STA $0203, x       ; save sprite X position
+  ;INX
+  ;INX
+  ;INX
+  ;INX
+  ;CPX #$10
+  ;BNE ReadRight
   LDA SCREENX
   CLC
   ADC PLAYERXSPEED
@@ -395,6 +381,23 @@ PlayMusic:
   JSR FamiToneMusicPlay
   LDA #$01
   STA MUSICISPLAYING
+
+; Note super happy with the below code
+CalculateEnemyX:
+  LDA #$00 ; this is a placeholder for enemy
+  CMP PLAYERISFORWARD
+  BNE EnemyRight
+  LDA $0213
+  CLC
+  ADC PLAYERXSPEED
+  STA $0213
+EnemyRight:
+
+  LDA $0213
+  SEC
+  SBC PLAYERXSPEED
+  STA $0213
+CalculateEnemyXDone:
 
 MusicDone:
   JMP GameLoop
@@ -463,10 +466,11 @@ palette:
 
 sprites:
      ;vert tile attr horiz
-  .db $80, $00, $00, $80   ;sprite 0
-  .db $80, $01, $00, $88   ;sprite 1 
-  .db $88, $10, $00, $80   ;sprite 2  
-  .db $88, $11, $00, $88   ;sprite 3
+  .db $80, $00, $00, $40   ;sprite 0
+  .db $80, $01, $00, $48   ;sprite 1 
+  .db $88, $10, $00, $40   ;sprite 2  
+  .db $88, $11, $00, $48   ;sprite 3
+  .db $88, $02, $00, $F0   ;sprite 3
 
 
 background:
@@ -480,21 +484,22 @@ background:
   .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
 
   .db $10,$10,$10,$10,$10,$10,$10,$10,$10,$10,$10,$10,$10,$10,$10,$10 ;;row 1
+  .db $10,$10,$10,$10,$10,$10,$10,$10,$10,$10,$10,$10,$10,$10,$10,$10 ;;row 1
+  
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
   .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
   
-  .db $00,$01,$02,$03,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
   .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
   
-  .db $00,$01,$02,$03,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
-  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$04 ;;all sky
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
   
-  .db $00,$01,$02,$03,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
-  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$04 ;;all sky
-  
-  .db $00,$01,$02,$03,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
-  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$04 ;;all sky
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
 
 attribute:
+
   .db %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000
   .db %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000
   .db %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000
@@ -503,7 +508,6 @@ attribute:
   .db %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000
   .db %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000
   .db %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000
-  
 
   
   .org $FFFA     ;first of the three vectors starts here
