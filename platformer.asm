@@ -42,6 +42,7 @@ CURRENTSPRITE     .rs 1
 CURRENTJUMP       .rs 1
 SCREENX           .rs 1  ;where the camera is pointed
 tempValue         .rs 1  ; to store temp values duh
+background_pointer .rs 2  ; a pointer which points to the portion of the level to render
 
 ;; CONSTANTS
 GRAVITY             = $04
@@ -98,13 +99,33 @@ clrmem:
   BNE clrmem
 
   JSR vblankwait
+
+INITIALIZEPLAYER: ; TODO rename this boy
+  ; lets zero out everything!
+  LDA #0
+  STA PLAYERXFIRST ; TODO come back to this and actually set it somewhere useful for collision
+  STA PLAYERXSECOND
+  STA PLAYERXSPEED 
+  STA PLAYERYLOW
+  STA PLAYERYHIGH  
+  STA PLAYERISFORWARD
+  STA PLAYERYSPEED
+  STA PLAYERCANJUMP
+  STA MUSICISPLAYING
+  STA ANIMATIONFRAME
+  STA SCREENX
+  LDA #$01
+  STA GRAVITY
+  STA PLAYERACCELERATION
+  LDA #$02
+  STA PLAYERMAXSPEED
   
 LoadPalettes:
-  LDA PPUSTATUS
+  BIT PPUSTATUS
   LDA #$3F
   STA PPUADDR
   LDA #$00
-  STA PPUADDR   
+  STA PPUADDR
   
   LDX #$00
 LoadPalettesLoop:
@@ -121,65 +142,38 @@ LoadSpritesLoop:
   LDA sprites, x        ; load data from address (sprites +  x)
   STA $0200, x          ; store into RAM address ($0200 + x)
   INX                   ; X = X + 1
-  CPX #$20              ; Compare X to hex $20, decimal 32
+  CPX #$10              ; Compare X to hex $20, decimal 32
   BNE LoadSpritesLoop   ; Branch to LoadSpritesLoop if compare was Not Equal to zero
                         ; if compare was equal to 32, keep going down
 
 LoadBackground:
-  LDA PPUSTATUS             ; read PPU status to reset the high/low latch
+  BIT PPUSTATUS             ; read PPU status to reset the high/low latch
   LDA #$20
   STA PPUADDR           ; write the high byte of $2000 address
   LDA #$00
   STA PPUADDR            ; write the low byte of $2000 address
+  LDA #LOW(background)
+  STA background_pointer
+  LDA #HIGH(background)
+  STA background_pointer+1
   LDX #$00              ; start out at 0
+  LDY #$00
 
-LoadLowBackgroundLoop:
-;dereference metatile
-  ;Loop throw background
-  LDA background, x     ; load data from address (background + the value in x)
-  TAY
-  JSR LoadMetaTile 
-  INX
-  TXA 
-  STA tempValue
-  AND #$0F
-  BEQ LoadHighBackground
-  LDX tempValue                     
-  CPX #$FF             
-  BNE LoadLowBackgroundLoop  ; Branch to LoadBackgroundLoop if compare was Not Equal to zero
-                        ; if compare was equal to 128, keep going down
-  JMP LoadAttribute
-
-LoadMetaTile:
+LoadBackgroundLoop:
+  LDA [background_pointer], y
+  STA PPUDATA
+  INY
+  CPX #$06
+  BNE CheckX
+  CPY #$18
+  BEQ LoadAttribute
   
-  LDA metatiles, y      ; get the meta tile
-  STA PPUDATA             ; write to PPU
-  INY
-  LDA metatiles, y      ; get the meta tile
-  STA PPUDATA             ; write to PPU
-  RTS
-
-LoadHighBackground:
-  TXA
-  SEC
-  SBC #$10
-  TAX
-  STX tempValue  
-
-LoadHighBackgroundLoop:
-  LDA background, x     ; load data from address (background + the value in x)
-  TAY
-  INY
-  INY
-  JSR LoadMetaTile 
-  LDX tempValue
+CheckX
+  CPY #$00
+  BNE LoadBackgroundLoop
   INX
-  TXA
-  STA tempValue  
-  AND #$0F
-  BEQ LoadLowBackgroundLoop
-  LDX tempValue 
-  JMP LoadHighBackgroundLoop
+  INC background_pointer+1
+  JMP LoadBackgroundLoop
   
 LoadAttribute:
   LDA PPUSTATUS            ; read PPU status to reset the high/low latch
@@ -206,26 +200,6 @@ LoadAttributeLoop:
 
   LDA #%00011110   ; enable sprites, enable background, no clipping on left side
   STA $2001
-  
-INITIALIZEPLAYER: ; TODO rename this boy
-  ; lets zero out everything!
-  LDA #0
-  STA PLAYERXFIRST ; TODO come back to this and actually set it somewhere useful for collision
-  STA PLAYERXSECOND
-  STA PLAYERXSPEED 
-  STA PLAYERYLOW
-  STA PLAYERYHIGH  
-  STA PLAYERISFORWARD
-  STA PLAYERYSPEED
-  STA PLAYERCANJUMP
-  STA MUSICISPLAYING
-  STA ANIMATIONFRAME
-  STA SCREENX
-  LDA #$01
-  STA GRAVITY
-  STA PLAYERACCELERATION
-  LDA #$02
-  STA PLAYERMAXSPEED
 
 
 INITIALIZELOOP:
@@ -318,7 +292,6 @@ ReadADone:        ; handling this button is done
 ReadB: 
   LDA CONTROLLERREAD1       ; player 1 - A
   AND #%01000000  ; only look at bit 0
-  JSR ToggleSuperState
   
 InitializeLeft:
 ; check if we actually need to do anything
@@ -467,11 +440,7 @@ Flip:
   BNE Flip
   
   RTS
-  
-ToggleSuperState:
-; add logic to change sprite pallette and flip state
-  RTS
- 
+
 music:
   .include "famitone2.asm"
   .include "music.asm"
@@ -490,17 +459,12 @@ sprites:
   .db $88, $10, $00, $40   ;sprite 2  
   .db $88, $11, $00, $48   ;sprite 3
 
-; add some sprite tabs for animations instead
 
-metatiles:
-  .db $00,$00,$00,$00 ; test metatile
-  .db $10,$10,$13,$13 ; platform
-  .db $11,$12,$11,$12 ;
 background:
-  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
-  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+  .db $01,$01,$01,$10,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $11,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
 
-  .db $04,$04,$04,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $11,$11,$11,$11,$10,$12,$12,$12,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
   .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
   
   .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
@@ -539,7 +503,25 @@ background:
   .db $04,$04,$04,$04,$04,$04,$04,$04,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
   .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
   
+    .db $01,$01,$01,$10,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $11,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+
+  .db $11,$11,$11,$11,$10,$12,$12,$12,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+  
   .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+  
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+  
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$08,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+  
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$08,$08,$00,$00,$00,$00,$00 ;;row 1
   .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
   
   .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
@@ -556,14 +538,97 @@ background:
   
   .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
   .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+  
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$08,$08,$08,$08,$08,$08,$08,$08 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+
+  .db $04,$04,$04,$04,$04,$04,$04,$04,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+  
+    .db $01,$01,$01,$10,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $11,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+
+  .db $11,$11,$11,$11,$10,$12,$12,$12,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+  
   .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
   .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+  
   .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
   .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+  
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$08,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+
   .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
   .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+  
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$08,$08,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+  
   .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
   .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+  
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+  
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+  
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+  
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$08,$08,$08,$08,$08,$08,$08,$08 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+
+  .db $04,$04,$04,$04,$04,$04,$04,$04,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+  
+    .db $01,$01,$01,$10,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $11,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+
+  .db $11,$11,$11,$11,$10,$12,$12,$12,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+  
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+  
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+  
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$08,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+  
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$08,$08,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+  
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+  
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+  
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+  
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+  
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$08,$08,$08,$08,$08,$08,$08,$08 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+
+  .db $04,$04,$04,$04,$04,$04,$04,$04,$00,$00,$00,$00,$00,$00,$00,$00 ;;row 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00 ;;all sky
+
 attribute:
 
   .db %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000
